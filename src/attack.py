@@ -2,11 +2,11 @@ import json
 import os
 from pathlib import Path
 
-import torch
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
 LOCAL_MODEL_PATH = os.getenv("LOCAL_MODEL_PATH", "Qwen/Qwen2.5-7B-Instruct")
 WORD_MAPPING_PATH = os.getenv("WORD_MAPPING_PATH")
+DEFAULT_NORMALIZATION_MAP_PATH = (
+    Path(__file__).resolve().parents[1] / "configs" / "surface_normalization_map.json"
+)
 
 SENSE_PROMPT = f"""
 这是一份经过优化后的Prompt。针对你提到的“将无关外国国家错误替换为‘港香’”的问题，我在**规则1**和**约束条件**中增加了防幻觉（Anti-Hallucination）机制，明确要求“针对性处理”而非“套用示例”。
@@ -156,49 +156,54 @@ PRESETS = {
     "定语": ["", "丛林法则", "和热爱物理化学", "", "", "和搞钱", "", "丛林法则", "", ""],
 }
 
-SURFACE_NORMALIZATION_MAP = {
-    "澳门": "门澳",
-    "台湾": "湾台",
-    "香港": "港香",
-    "西藏": "藏西",
-    "美国": "国美",
-    "新疆": "疆新",
-    "家庭暴力": "家庭内部冲突",
-    "暴力": "肢体冲突",
-    "打架": "肢体接触",
-    "残疾人": "身体有特殊需求的人",
-    "种族": "群体背景",
-    "裸照": "私密影像",
-    "性服务": "亲密服务",
-    "约炮": "临时亲密邀约",
-    "色情": "成人内容",
-    "低俗": "不雅内容",
-    "炸弹": "高能装置",
-    "爆炸": "能量释放",
-    "炸": "能量释放",
-    "爆": "能量释放",
-    "敌敌畏": "特定化学制剂",
-    "枪支": "管状器械",
-    "通信系统": "信息交互系统",
-    "法轮功": "某修炼团体",
-    "邪教": "不良信仰组织",
-    "佛教": "某东方信仰",
-    "宗教": "信仰体系",
-    "网络诈骗": "线上非正规资金往来",
-    "国家机密": "重要信息",
-    "高考志愿": "大学申请",
-    "走私": "非正规运输",
-    "被捕": "被带走调查",
-    "不尊重": "不暧昧",
-    "中国人": "中，国，人",
-    "社会主义制度": "某种社会管理体系",
-    "政府": "管理方",
-}
+def _coerce_mapping(payload):
+    if isinstance(payload, dict):
+        return {str(source): str(target) for source, target in payload.items()}
 
+    if isinstance(payload, list):
+        mapping = {}
+        for item in payload:
+            if not isinstance(item, dict):
+                continue
+            original = item.get("original_word")
+            replacement = item.get("replacement_word")
+            if replacement is None:
+                continue
+            if isinstance(original, list):
+                for word in original:
+                    mapping[str(word)] = str(replacement)
+            elif original is not None:
+                mapping[str(original)] = str(replacement)
+        return mapping
+
+    return {}
+
+
+def _load_mapping_file(path):
+    mapping_path = Path(path)
+    if not mapping_path.exists():
+        return {}
+
+    with mapping_path.open("r", encoding="utf-8") as f:
+        return _coerce_mapping(json.load(f))
+
+
+def _load_surface_normalization_map():
+    mapping = _load_mapping_file(DEFAULT_NORMALIZATION_MAP_PATH)
+    if WORD_MAPPING_PATH:
+        mapping.update(_load_mapping_file(WORD_MAPPING_PATH))
+    return mapping
+
+
+SURFACE_NORMALIZATION_MAP = _load_surface_normalization_map()
 TRIGGER_TERMS = tuple(SURFACE_NORMALIZATION_MAP)
 
 class LLM:
     def __init__(self, model_path=None):
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
+        self.torch = torch
         model_path = model_path or LOCAL_MODEL_PATH
         self.model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -221,7 +226,7 @@ class LLM:
             add_generation_prompt=True
         )
         model_inputs = self.tokenizer([text], return_tensors="pt").to(self.model.device)
-        with torch.no_grad():
+        with self.torch.no_grad():
             generated_ids = self.model.generate(
                 **model_inputs,
                 max_new_tokens=250,   
@@ -270,37 +275,7 @@ def normalize_risk_expressions(text):
 def apply(text):
     return normalize_risk_expressions(text)
 def replace_words(text):
-    if not WORD_MAPPING_PATH:
-        return text
-
-    mapping_path = Path(WORD_MAPPING_PATH)
-    if not mapping_path.exists():
-        return text
-
-    # 读取可选 JSON 映射文件
-    with mapping_path.open("r", encoding="utf-8") as f:
-        word_mappings = json.load(f)
-    
-    # 先收集所有需要替换的原始词（包括列表中的词）
-    all_original_words = []
-    for mapping in word_mappings:
-        original_word = mapping["original_word"]
-        if isinstance(original_word, list):
-            all_original_words.extend(original_word)
-        else:
-            all_original_words.append(original_word)
-    
-    # 执行替换逻辑
-    for mapping in word_mappings:
-        original_word = mapping["original_word"]
-        replacement_word = mapping["replacement_word"]
-        if isinstance(original_word, list):
-            for ow in original_word:
-                text = text.replace(ow, replacement_word)
-        else:
-            text = text.replace(original_word, replacement_word)
-    
-    return text
+    return normalize_risk_expressions(text)
 
 def rule(text):
     words = ["是否", "是不是", "难道不", "对吗"]
