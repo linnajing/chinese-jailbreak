@@ -8,6 +8,7 @@ Included:
 
 - Core implementation in `src/attack.py`
 - Minimal single-query example in `examples/run_single.py`
+- Conda and pip environment files
 
 Not included:
 
@@ -18,6 +19,15 @@ Not included:
 - API keys or private configuration
 
 ## Installation
+
+Create and activate the Conda environment:
+
+```bash
+conda env create -f environment.yml
+conda activate jail
+```
+
+Alternatively, install the Python dependencies directly:
 
 ```bash
 pip install -r requirements.txt

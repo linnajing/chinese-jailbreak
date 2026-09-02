@@ -1,5 +1,32 @@
-torch>=2.4.0
-transformers>=4.53.2
-accelerate>=1.8.1
-sentencepiece>=0.2.1
-protobuf>=6.32.0
+# 核心HTTP和网络库
+requests==2.32.3
+httpx==0.28.1
+websocket-client==1.8.0
+
+# 数据可视化
+matplotlib==3.9.2
+
+# 大语言模型相关
+transformers==4.53.2
+torch==2.4.0
+fastchat==0.1.0
+openai==1.99.9
+accelerate==1.8.1
+
+# 数据处理和分析
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.5.1
+datasets==4.4.1
+
+# 其他运行依赖
+protobuf==6.32.0
+sentencepiece==0.2.1
+jsonlines==4.0.0
+
+# Web框架
+Flask==3.0.3
+
+# 文件处理
+openpyxl==3.1.5
+python-docx==1.1.0
