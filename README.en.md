@@ -2,23 +2,7 @@
 
 [English](README.en.md) | [中文](README.zh-CN.md)
 
-This repository contains a minimal release of the core prompt-generation code for Chinese LLM safety evaluation research.
-
-## Scope
-
-Included:
-
-- Core implementation in `src/attack.py`
-- Minimal single-query example in `examples/run_single.py`
-- Conda and pip environment files
-
-Not included:
-
-- Experiment outputs
-- Raw model responses
-- Comparison method implementations
-- Full datasets
-- API keys or private configuration
+This repository contains core prompt-generation code for Chinese LLM safety evaluation research.
 
 ## Installation
 
